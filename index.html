@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <title>MP+T test</title>
+    <meta charset='utf-8'>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@5.20.1/dist/maplibre-gl.css' />
+    <script src='https://unpkg.com/maplibre-gl@5.20.1/dist/maplibre-gl.js'></script>
+    <script src="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.umd.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body,
+        #map {
+            height: 100%;
+            background: url(textures/bg.png);
+            background-size: cover;
+        }
+
+        #project {
+            display: block;
+            position: absolute;
+            top: 5vh;
+            left: 50%;
+            transform: translate(-50%);
+            width: 15%;
+            height: 40px;
+            padding: 10px;
+            border: none;
+            border-radius: 3px;
+            font-size: 12px;
+            text-align: center;
+            color: #fff;
+            background: #0015ff;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <div id="map"></div>
+    <button id="project">projeção</button>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        // generic zoom-based visibility system
+        const ZOOM_LEVELS = {
+            WHOLE_EARTH: 0,
+            CONTINENTAL: 3,
+            REGIONAL: 5,
+            CITY: 9,
+            STREET: 14,
+            CLOSEUP: 18,
+            MAX: 24
+        };
+
+        class ZoomVisibilityManager {
+            constructor(map) {
+                this.map = map;
+                this.items = new Map();
+                map.on('zoom', () => this._updateAll());
+            }
+
+            // levelRange ['CONTINENTAL', 'STREET']
+            register(id, levelRange, { onShow, onHide } = {}) {
+                const [minLevel, maxLevel] = levelRange;
+                this.items.set(id, {
+                    minZoom: ZOOM_LEVELS[minLevel],
+                    maxZoom: ZOOM_LEVELS[maxLevel],
+                    onShow,
+                    onHide,
+                    visible: null
+                });
+                this._updateOne(id); // apply initial state right away
+            }
+
+            unregister(id) {
+                this.items.delete(id);
+            }
+
+            isVisible(id) {
+                const item = this.items.get(id);
+                return item ? !!item.visible : false;
+            }
+
+            _updateAll() {
+                for (const id of this.items.keys()) this._updateOne(id);
+            }
+
+            _updateOne(id) {
+                const item = this.items.get(id);
+                if (!item) return;
+                const z = this.map.getZoom();
+                const shouldShow = z >= item.minZoom && z <= item.maxZoom;
+                if (shouldShow !== item.visible) {
+                    item.visible = shouldShow;
+                    if (shouldShow && item.onShow) item.onShow();
+                    if (!shouldShow && item.onHide) item.onHide();
+                }
+            }
+        }
+
+        let orbitFrame = null;
+
+        function stopOrbit() {
+            if (orbitFrame) {
+                cancelAnimationFrame(orbitFrame);
+                orbitFrame = null;
+            }
+        }
+
+        function flyToOrbit(map, coords, { zoom = 12.75, pitch = 65, orbitSpeed = 0.75 } = {}) {
+            stopOrbit();
+            map.flyTo({
+                center: coords,
+                zoom,
+                pitch,
+                duration: 3000,
+                essential: true
+            });
+
+            map.once('moveend', () => {
+                const spin = () => {
+                    map.setBearing((map.getBearing() + orbitSpeed) % 360);
+                    orbitFrame = requestAnimationFrame(spin);
+                };
+                orbitFrame = requestAnimationFrame(spin);
+            });
+        }
+
+        const TERRAIN_SOURCE = {
+            type: 'raster-dem',
+            tiles: ['https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'],
+            encoding: 'terrarium',
+            tileSize: 256,
+            // this dataset's tiles only go up to z13
+            maxzoom: 13
+        };
+
+        const geojson = {
+            'type': 'FeatureCollection',
+            'features': [
+                {
+                    'type': 'Feature',
+                    'properties': {
+                        'message': 'teste',
+                        'iconSize': [60, 60],
+                        // set visibility
+                        'levelRange': ['CONTINENTAL', 'CITY']
+                    },
+                    'geometry': {
+                        'type': 'Point',
+                        'coordinates': [-50.200395591397736, -29.65694190676408]
+                    }
+                },
+                {
+                    'type': 'Feature',
+                    'properties': {
+                        'message': '12345',
+                        'iconSize': [50, 50],
+                        'levelRange': ['CONTINENTAL', 'STREET']
+                    },
+                    'geometry': {
+                        'type': 'Point',
+                        'coordinates': [-61.2158203125, -15.97189158092897]
+                    }
+                },
+                {
+                    'type': 'Feature',
+                    'properties': {
+                        'message': 'lorem ipsum dolor sit amet',
+                        'iconSize': [40, 40],
+                        'levelRange': ['CONTINENTAL', 'STREET']
+                    },
+                    'geometry': {
+                        'type': 'Point',
+                        'coordinates': [-25.29223632812499, 28.28151823530889]
+                    }
+                }
+            ]
+        };
+
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: {
+                "version": 8,
+                "projection": {
+                    "type": "globe"
+                },
+                "sources": {
+                    "satellite": {
+                        "type": "raster",
+                        "tiles": ["https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg"],
+                        "tileSize": 256
+                    }
+                },
+                "layers": [
+                    {
+                        "id": "satellite",
+                        "type": "raster",
+                        "source": "satellite"
+                    }
+                ],
+                "sky": {
+                    "atmosphere-blend": [
+                        "interpolate",
+                        ["linear"],
+                        ["zoom"],
+                        0, 0.8,
+                        5, 1.0,
+                        7, 0
+                    ]
+                },
+                "light": {
+                    "anchor": "map",
+                    "position": [15, 90, 180]
+                }
+            },
+            zoom: 2.5,
+            center: [-50, -30],
+            maxPitch: 89,
+            pitch: 15,
+            canvasContextAttributes: { antialias: true }
+        });
+
+        const zoomVisibility = new ZoomVisibilityManager(map);
+
+        // add markers to map
+        geojson.features.forEach((marker, i) => {
+            // create element for the marker
+            const el = document.createElement('div');
+            el.className = 'marker';
+            el.style.backgroundImage =
+                `url(https://picsum.photos/${
+                    marker.properties.iconSize.join('/')
+                }/)`;
+            el.style.width = `${marker.properties.iconSize[0]}px`;
+            el.style.height = `${marker.properties.iconSize[1]}px`;
+
+            // add marker to map
+            new maplibregl.Marker({element: el})
+                .setLngLat(marker.geometry.coordinates)
+                .addTo(map);
+
+            zoomVisibility.register(`marker-${i}`, marker.properties.levelRange, {
+                onShow: () => { el.style.display = 'block'; },
+                onHide: () => { el.style.display = 'none'; }
+            });
+
+            el.addEventListener('click', () => {
+                console.log(marker.properties.message);
+                flyToOrbit(map, marker.geometry.coordinates);
+            });
+        });
+
+        // any manual drag takes control back from the auto-orbit
+        map.on('dragstart', stopOrbit);
+
+        const draw = new MaplibreTerradrawControl.MaplibreTerradrawControl({
+        modes: [
+                'point',
+                'linestring',
+                'polygon',
+                'rectangle',
+                'circle',
+                'freehand',
+                'angled-rectangle',
+                'sensor',
+                'sector',
+                'select',
+                'delete-selection',
+                'delete',
+                'download'
+            ],
+            open: true,
+        });
+        map.addControl(draw, 'top-left');
+
+        map.on('style.load', () => {
+            if (!map.getSource('terrain')) {
+                map.addSource('terrain', TERRAIN_SOURCE);
+            }
+            map.setTerrain({
+                source: 'terrain',
+                exaggeration: 2.5
+            });
+        });
+
+        document.getElementById('project').addEventListener('click', () => {
+            const currentProjection = map.getProjection();
+            map.setProjection({
+                type: currentProjection.type === 'globe' ? 'equirectangular' : 'globe'
+            });
+        });
+
+        const customLayer = {
+    id: '3d-model',
+    type: 'custom',
+    renderingMode: '3d',
+
+    onAdd(map, gl) {
+        this.camera = new THREE.Camera();
+        this.map = map;
+
+        this.models = [
+            {
+                url: 'models/totem_test_1.gltf',
+                origin: [-50.200395591397736, -29.65694190676408],
+                altitude: 0,
+                scale: 1000.0,
+                scene: null
+            },
+            {
+                url: 'models/boat.gltf',
+                origin: [-25.29223632812499, 28.28151823530889],
+                altitude: 0,
+                scale: 2000.0,
+                scene: null
+            },
+            {
+                url: 'models/casa.gltf',
+                origin: [30.97547134189248, 30.03035072947374],
+                altitude: -70000, //values seems off but its intended, its better to be integers than floats, every model is like that
+                scale: 50000.0,
+                scene: null
+            }
+        ];
+
+        const loader = new GLTFLoader();
+    
+
+        this.models.forEach((model) => {
+            const scene = new THREE.Scene();
+
+            // lights per scene
+            const light1 = new THREE.DirectionalLight(0xffffff);
+            light1.position.set(0, -70, 100).normalize();
+            scene.add(light1);
+
+            const light2 = new THREE.DirectionalLight(0xffffff);
+            light2.position.set(0, 70, 100).normalize();
+            scene.add(light2);
+
+            loader.load(
+                model.url,
+                (gltf) => {
+                    scene.add(gltf.scene);
+                    console.log(`[3d-model] loaded OK: ${model.url}`);
+                },
+                undefined,
+                (error) => {
+                    console.error(`[3d-model] FAILED to load ${model.url}:`, error);
+                }
+            );
+
+            model.scene = scene;
+        });
+
+        this.renderer = new THREE.WebGLRenderer({
+            canvas: map.getCanvas(),
+            context: gl,
+            antialias: true
+        });
+
+        this.renderer.autoClear = false;
+    },
+
+    render(gl, args) {
+        const mainMatrix = new THREE.Matrix4().fromArray(args.defaultProjectionData.mainMatrix);
+
+        this.models.forEach((model) => {
+            if (!model.scene) return;
+
+            const modelMatrix = this.map.transform.getMatrixForModel(model.origin, model.altitude);
+            const l = new THREE.Matrix4().fromArray(modelMatrix).scale(
+                new THREE.Vector3(model.scale, model.scale, model.scale)
+            );
+
+            this.camera.projectionMatrix = mainMatrix.clone().multiply(l);
+
+            this.renderer.resetState();
+            this.renderer.render(model.scene, this.camera);
+        });
+
+        this.map.triggerRepaint();
+    }
+};
+
+        map.on('style.load', () => {
+            if (!map.getLayer('3d-model')) {
+                map.addLayer(customLayer);
+            }
+        });
+    </script>
+</body>
+
+</html>
