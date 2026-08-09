@@ -1,0 +1,95 @@
+body {
+  margin: 0;
+  padding: 0;
+}
+
+html,body,#map {
+  height: 100%;
+  background: url(../textures/bg.jpg);
+  background-size: cover;
+}
+
+select {
+  background: #90D4861E;
+  color: white;
+  border: 1px solid #555;
+  box-shadow: 0 0 25px 10px #FFFFFF0F inset;
+}
+
+select option {
+  background: #90D4861E;
+  color: white;
+  box-shadow: 0 0 25px 10px #FFFFFF0F inset;
+}
+
+#project {
+  display: block;
+  position: absolute;
+  top: 2.5vh;
+  left: 50%;
+  transform: translate(-50%);
+  width: 15%;
+  height: 40px;
+  padding: 10px;
+  border: none;
+  font-size: 12px;
+  text-align: center;
+  color: #fff;
+  background: #90D4861E;
+  cursor: pointer;
+  border-radius: 9px;
+  box-shadow: 0 0 25px 10px #FFFFFF0F inset;
+}
+
+#basemap-switcher {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1;
+}
+
+#basemap-switcher::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+#basemap-switcher select {
+  display: block;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  min-width: 150px;
+  padding: 1vh 2.5vh 10px 14px;
+  border: none;
+  font-size: 12px;
+  font-family: inherit;
+  color: #fff;
+  background: #90D4861E;
+  cursor: pointer;
+  border-radius: 9px;
+  box-shadow: 0 0 25px 10px #FFFFFF0F inset;
+}
+
+#basemap-switcher select:hover {
+  background: #90D4861E;
+  border-radius: 9px;
+  box-shadow: 0 0 25px 10px #FFFFFF0F inset;
+}
+
+#basemap-switcher select:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+#basemap-switcher select option {
+  background: #001a4d;
+  color: #90D4861E;
+}
