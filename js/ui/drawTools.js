@@ -1,16 +1,17 @@
 export function initDrawTools(map) {
-  const draw = new MaplibreTerradrawControl.MaplibreTerradrawControl({
+  const draw = new MaplibreTerradrawControl({
     modes: [
+      'select',
       'point',
+      'marker',
       'linestring',
+      'freehand-linestring',
       'polygon',
       'rectangle',
       'circle',
       'freehand',
-      'angled-rectangle',
-      'sensor',
-      'sector',
-      'select',
+      'undo',
+      'redo',
       'delete-selection',
       'delete',
       'download'
