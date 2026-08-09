@@ -16,7 +16,23 @@ export function initDrawTools(map) {
       'delete',
       'download'
     ],
-    open: true
+    open: true,
+    undoRedo: {
+      keyboardShortcuts: new TerraDrawUndoRedoKeyboardShortcuts({
+        undo: [
+          {
+            key: 'z',
+            heldKeys: ['control']
+          }
+        ],
+        redo: [
+          {
+            key: 'y',
+            heldKeys: ['control']
+          }
+        ]
+      })
+    }
   });
   map.addControl(draw, 'top-left');
   return draw;
