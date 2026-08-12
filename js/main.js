@@ -2,6 +2,7 @@ import { MAP_STYLE, MAP_VIEW_OPTIONS } from './config/mapStyle.js';
 import { ZoomVisibilityManager } from './core/ZoomVisibilityManager.js';
 import { stopOrbit } from './core/cameraOrbit.js';
 import { customLayer } from './core/ThreeModelLayer.js';
+//import { loadTestGeojson } from './core/geojsonLoadTest.js';
 import { initBasemapSwitcher } from './ui/basemapSwitcher.js';
 import { addMarkers } from './ui/markerLayer.js';
 import { initDrawTools } from './ui/drawTools.js';
@@ -15,9 +16,12 @@ const zoomVisibility = new ZoomVisibilityManager(map);
 // initializes the UI
 initBasemapSwitcher(map);
 addMarkers(map, zoomVisibility);
-initDrawTools(map);
+let drawControl = initDrawTools(map);
 initTerrain(map);
 initProjectionToggle(map);
+
+//loading a geojson from file onto terradraw test
+loadTestGeojson(map, drawControl);
 
 
 // any manual drag takes control back from the auto-orbit
